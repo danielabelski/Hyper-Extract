@@ -147,9 +147,7 @@ class CompatibleEmbeddings(Embeddings):
                     counts[orig_idx] = 1
                 else:
                     running = sums[orig_idx]
-                    sums[orig_idx] = [
-                        a + b for a, b in zip(running, emb, strict=False)
-                    ]
+                    sums[orig_idx] = [a + b for a, b in zip(running, emb, strict=False)]
                     counts[orig_idx] += 1
 
         for chunk in chunks:
