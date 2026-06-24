@@ -140,6 +140,36 @@ class TestAutoModelSerialization:
         assert "created_at" in new_model.metadata
         assert "updated_at" in new_model.metadata
 
+    def test_load_metadata_restores_datetime_type(self, llm_client, embedder):
+        """Loaded timestamps are datetime objects, not ISO strings.
+
+        dump_metadata serializes datetimes via default=str; without conversion
+        on load, a loaded instance keeps strings while a fresh one holds
+        datetimes, so min(created_at, ...) in __add__ would raise TypeError.
+        """
+        from datetime import datetime
+
+        model = AutoModel(
+            data_schema=PersonSchema,
+            llm_client=llm_client,
+            embedder=embedder,
+        )
+
+        metadata_file = Path(self.temp_dir) / "metadata.json"
+        model.dump_metadata(metadata_file)
+
+        new_model = AutoModel(
+            data_schema=PersonSchema,
+            llm_client=llm_client,
+            embedder=embedder,
+        )
+        new_model.load_metadata(metadata_file)
+
+        assert isinstance(new_model.metadata["created_at"], datetime)
+        assert isinstance(new_model.metadata["updated_at"], datetime)
+        # The real-world manifestation: comparing loaded vs fresh must not raise.
+        assert min(new_model.metadata["created_at"], datetime.now())
+
     @pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Requires real LLM")
     def test_dump_and_load_full(self, llm_client, embedder):
         """Test full dump/load cycle."""
