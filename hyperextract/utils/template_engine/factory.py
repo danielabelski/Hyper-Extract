@@ -455,6 +455,8 @@ class TemplateFactory:
                 template_cfg = load_template(s)
             case str() as s:
                 template_cfg = Gallery.get(s)
+            case TemplateCfg() as cfg:
+                template_cfg = cfg
             case _:
                 raise ValueError("Invalid source: must be a template path or file path")
 
@@ -493,10 +495,12 @@ class TemplateFactory:
                     template_cfg, llm_client, embedder, **kwargs
                 )
 
-        if source.endswith(".yaml"):
-            template.metadata["template"] = Path(source).stem
+        if isinstance(source, str):
+            template.metadata["template"] = (
+                Path(source).stem if source.endswith(".yaml") else source
+            )
         else:
-            template.metadata["template"] = source
+            template.metadata["template"] = source.name
         template.metadata["lang"] = language
         template.metadata["type"] = template_cfg.type
 
