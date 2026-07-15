@@ -257,7 +257,13 @@ class BaseAutoType(ABC, Generic[T]):
 
         if len(text) <= self.chunk_size:
             logger.debug("stage=extract_single_chunk chunk_text_preview=%s", text[:200])
-            extracted_data = self.data_extractor.invoke({"source_text": text})
+            try:
+                extracted_data = self.data_extractor.invoke({"source_text": text})
+            except Exception as e:
+                # LLM returned unparseable output (e.g. prose instead of JSON).
+                # Log and treat as an empty result instead of crashing the run.
+                logger.warning("stage=extract_single_chunk_failed error=%s", e)
+                extracted_data = None
             logger.debug(
                 "stage=extract_single_chunk_result chunk=0 result_summary=%s",
                 self._summarize_extracted(extracted_data),
@@ -279,9 +285,22 @@ class BaseAutoType(ABC, Generic[T]):
                 self.max_workers,
                 len(inputs),
             )
+            # return_exceptions keeps one bad chunk from aborting the whole batch;
+            # failures are logged and nulled (then filtered) below.
             extracted_data_list = self.data_extractor.batch(
-                inputs, config={"max_concurrency": self.max_workers}
+                inputs,
+                config={"max_concurrency": self.max_workers},
+                return_exceptions=True,
             )
+            cleaned = []
+            for i, r in enumerate(extracted_data_list):
+                if isinstance(r, Exception):
+                    logger.warning(
+                        "stage=chunk_extract_failed chunk_index=%d error=%s", i, r
+                    )
+                    r = None
+                cleaned.append(r)
+            extracted_data_list = cleaned
             logger.debug(
                 "stage=llm_batch_complete results=%d", len(extracted_data_list)
             )
