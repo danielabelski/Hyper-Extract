@@ -135,7 +135,9 @@ class ConfigManager:
 
     def _save(self) -> None:
         """Save configuration to file."""
-        DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        # Create the parent of the actual target path, not the default dir —
+        # a custom config_path may live elsewhere and would otherwise 404.
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
         data = {
             "llm": self.llm.to_dict(),
